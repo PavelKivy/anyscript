@@ -1,0 +1,53 @@
+import os
+import subprocess
+import tkinter as tk
+from tkinter import messagebox
+
+FILENAME = "license.sll"              # Имя файла лицензии
+LIMS_EXE = "lims.exe"                 # Путь к LIMS.exe (можно полный путь)
+LIMS_WORKDIR = "C:\\Path\\To\\LIMS"   # Рабочая директория LIMS
+
+def ask_user_gui():
+    """Показать окно с вопросом об ошибке"""
+    root = tk.Tk()
+    root.withdraw()  # Скрыть главное окно
+    result = messagebox.askyesno("Ошибка?", "Была ошибка загрузки LIMS?\n\nДа — откатить изменение\nНет — оставить")
+    root.destroy()
+    return result  # True если "Да", False если "Нет"
+
+def run_lims_and_check():
+    print("Запускаю LIMS...")
+    try:
+        subprocess.Popen([LIMS_EXE], cwd=LIMS_WORKDIR)
+        return ask_user_gui()
+    except Exception as e:
+        print(f"Ошибка запуска LIMS: {e}")
+        return True
+
+def main():
+    with open(FILENAME, "rb") as f:
+        data = bytearray(f.read())
+
+    positions = [i for i, b in enumerate(data) if b == 0x28]
+    print(f"Найдено {len(positions)} вхождений байта 0x28")
+
+    for pos in positions:
+        print(f"Пробую изменить позицию {pos} (0x{pos:X})")
+        original = data[pos]
+        data[pos] = 0x2A  # 42 в десятичной
+
+        with open(FILENAME, "wb") as f:
+            f.write(data)
+
+        if run_lims_and_check():
+            print("Ошибка — откатываю")
+            data[pos] = original
+        else:
+            print("Работает! Значение заменено.")
+            break
+
+    with open(FILENAME, "wb") as f:
+        f.write(data)
+
+if __name__ == "__main__":
+    main()
